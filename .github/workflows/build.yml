@@ -1,1 +1,68 @@
+name: Build APK
 
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unzip source
+        run: |
+          unzip -o ECHO-src.zip -d .
+          rm -f ECHO-src.zip
+          echo "--- files ---"
+          ls -la
+          echo "--- www ---"
+          ls -la app/src/main/assets/www/
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make gradle wrapper
+        run: gradle wrapper --gradle-version 8.7
+
+      - name: Build APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Collect APK
+        run: |
+          mkdir -p out
+          find app/build/outputs/apk -name "*.apk" -exec cp {} out/ECHO.apk \;
+          ls -lh out/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ECHO-APK
+          path: out/ECHO.apk
+          retention-days: 90
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.${{ github.run_number }}
+          name: ECHO v1.${{ github.run_number }}
+          body: |
+            ## ECHO — Shopify AI Agent
+
+            Neeche **Assets** mein **ECHO.apk** par tap kar ke download karein.
+
+            Install ke baad app kholein — setup wizard khud aa jayega.
+          files: out/ECHO.apk
